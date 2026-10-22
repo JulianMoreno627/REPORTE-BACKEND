@@ -1,0 +1,24 @@
+{
+  "name": "reporte-baches-backend",
+  "version": "0.2.0",
+  "description": "Backend del Caso de Estudio 2: Reporte y seguimiento ciudadano de baches y daños viales",
+  "author": "Julian Moreno",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "build": "node scripts/build-ssg.js",
+    "prestart": "npm run build",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:import": "node scripts/import-json.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "compression": "^1.8.0",
+    "express": "^5.1.0",
+    "pg": "^8.23.1"
+  }
+}
