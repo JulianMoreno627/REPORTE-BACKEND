@@ -38,6 +38,11 @@ export class IncidentController {
     res.json(await this.#incidents.changeStatus(req.user, req.params.id, status, note));
   };
 
+  attachHistoryPhoto = async (req, res) => {
+    const bytes = Buffer.isBuffer(req.body) ? req.body : null;
+    res.json(await res.locals.timing.measure('photo', () => this.#incidents.attachHistoryPhoto(req.user, req.params.id, req.params.entry, bytes)));
+  };
+
   heatmap = async (req, res) => {
     const data = await res.locals.timing.measure('heatmap', () => this.#heatmap.build({ bbox: parseBoundingBox(req.query.bbox) }));
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');

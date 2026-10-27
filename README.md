@@ -53,7 +53,7 @@ npm install
 npm run db:import   # opcional: copia a PostgreSQL los datos de data/db.json y las fotos de public/uploads
 npm start           # genera la página SSG y levanta la API en http://localhost:3000
 npm run dev         # modo desarrollo (reinicia al guardar)
-npm test            # 27 pruebas
+npm test            # 28 pruebas
 ```
 
 `GET http://localhost:3000/api/health` responde `"storage": "postgresql+postgis"` cuando está conectado a la base.

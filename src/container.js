@@ -78,7 +78,10 @@ export function createContainer(overrides = {}) {
     photoMaxDistanceMeters: config.photoMaxDistanceMeters,
     maxPhotoBytes: config.maxPhotoBytes,
   });
-  const incidentService = new IncidentService({ incidentRepository, reportRepository, eventBus, priorityStrategy, clock });
+  const incidentService = new IncidentService({
+    incidentRepository, reportRepository, eventBus, priorityStrategy, imageStorage, workerPool, clock,
+    maxPhotoBytes: config.maxPhotoBytes,
+  });
   const heatmapService = new HeatmapService({ incidentRepository, priorityStrategy, clock });
   const consolidationService = new ConsolidationService({
     incidentRepository, reportRepository, workerPool, eventBus, clock, clusterRadiusMeters: config.clusterRadiusMeters,

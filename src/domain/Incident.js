@@ -3,7 +3,7 @@ import { Coordinate } from './Coordinate.js';
 import { DamageCategory } from './DamageCategory.js';
 import { RoadType } from './RoadType.js';
 import { IncidentStatus } from './IncidentStatus.js';
-import { ConflictError, DomainError } from './errors.js';
+import { ConflictError, DomainError, NotFoundError } from './errors.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -114,6 +114,14 @@ export class Incident extends Entity {
     return { previous, current: target };
   }
 
+  attachHistoryPhoto(index, photoUrl, { at = new Date() } = {}) {
+    const entry = this.#history[index];
+    if (!entry) throw new NotFoundError('Registro del historial');
+    entry.photoUrl = photoUrl;
+    this.#updatedAt = at;
+    return { ...entry };
+  }
+
   toJSON() {
     const category = this.category;
     return {
@@ -129,7 +137,9 @@ export class Incident extends Entity {
       roadTypeLabel: this.#roadType.label,
       reportCount: this.reportCount,
       reporterCount: this.#reporterIds.size,
-      history: this.#history.map(({ status, at, note }) => ({ status, statusLabel: IncidentStatus.from(status).label, at, note })),
+      history: this.#history.map(({ status, at, note, photoUrl = null }) => ({
+        status, statusLabel: IncidentStatus.from(status).label, at, note, photoUrl,
+      })),
     };
   }
 

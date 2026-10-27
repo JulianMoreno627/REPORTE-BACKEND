@@ -74,7 +74,25 @@ test('Cambio de estado: solo funcionarios y notifica a todos los que reportaron'
   assert.equal((await c.notificationService.list(beto.id)).unread, 1);
 }));
 
-test('Foto: el GPS del EXIF verifica o marca como sospechoso el reporte', () => withContainer(async (c) => {
+test('Seguimiento: el funcionario puede adjuntar una foto opcional a una etapa', () => withContainer(async (c) => {
+  const ana = await createCitizen(c);
+  const official = await createOfficial(c);
+  const { incident } = await c.reportService.create(ana, input(at(0, 0)));
+  const changed = await c.incidentService.changeStatus(official, incident.id, 'IN_REVIEW', 'Cuadrilla asignada');
+  const entry = changed.history.length - 1;
+  assert.equal(changed.history[entry].photoUrl, null);
+
+  const view = await c.incidentService.attachHistoryPhoto(official, incident.id, entry, PNG_BYTES);
+  assert.match(view.history[entry].photoUrl, /^\/uploads\/.+\.png$/);
+  assert.equal(view.history[entry].note, 'Cuadrilla asignada');
+  assert.match((await c.incidentService.getDetail(incident.id)).history[entry].photoUrl, /^\/uploads\//);
+
+  await assert.rejects(c.incidentService.attachHistoryPhoto(ana, incident.id, entry, PNG_BYTES), { status: 403 });
+  await assert.rejects(c.incidentService.attachHistoryPhoto(official, incident.id, 99, PNG_BYTES), { status: 404 });
+  await assert.rejects(c.incidentService.attachHistoryPhoto(official, incident.id, entry, Buffer.from('no es imagen')), { status: 400 });
+}));
+
+test('Foto: el GPS del EXIF verifica o marca como sospechoso el reporte',() => withContainer(async (c) => {
   const [ana, beto, caro] = [await createCitizen(c), await createCitizen(c), await createCitizen(c)];
   const near = await c.reportService.create(ana, input(at(0, 0)));
   const verified = await c.reportService.attachPhoto(ana, near.report.id, buildJpegWithGps(near.report.location.lat, near.report.location.lng));

@@ -1,7 +1,7 @@
 import { IncidentStatus } from '../domain/IncidentStatus.js';
 import { DamageCategory } from '../domain/DamageCategory.js';
 import { RoadType } from '../domain/RoadType.js';
-import { ForbiddenError, NotFoundError } from '../domain/errors.js';
+import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors.js';
 import { Events } from '../infrastructure/EventBus.js';
 import { Clock } from '../infrastructure/Clock.js';
 
@@ -18,13 +18,22 @@ export class IncidentService {
   #bus;
   #clock;
   #priority;
+  #storage;
+  #workerPool;
+  #maxPhotoBytes;
 
-  constructor({ incidentRepository, reportRepository, eventBus, priorityStrategy, clock = new Clock() }) {
+  constructor({
+    incidentRepository, reportRepository, eventBus, priorityStrategy, imageStorage, workerPool,
+    clock = new Clock(), maxPhotoBytes = 2 * 1024 * 1024,
+  }) {
     this.#incidents = incidentRepository;
     this.#reports = reportRepository;
     this.#bus = eventBus;
     this.#priority = priorityStrategy;
+    this.#storage = imageStorage;
+    this.#workerPool = workerPool;
     this.#clock = clock;
+    this.#maxPhotoBytes = maxPhotoBytes;
   }
 
   get priorityStrategyName() { return this.#priority.name; }
@@ -71,6 +80,27 @@ export class IncidentService {
     const { previous, current } = incident.changeStatus(status, { by: user.id, note, at: this.#clock.now() });
     await this.#incidents.save(incident);
     await this.#bus.publish(Events.INCIDENT_STATUS_CHANGED, { incident, previous, current, changedBy: user, note });
+    return this.view(incident);
+  }
+
+  async attachHistoryPhoto(user, id, entryIndex, bytes) {
+    if (!user.canManageIncidents()) throw new ForbiddenError('Solo un funcionario puede adjuntar fotos al seguimiento');
+    const incident = await this.#incidents.findById(id);
+    if (!incident) throw new NotFoundError('Incidente');
+    const index = Number.parseInt(entryIndex, 10);
+    if (!Number.isInteger(index) || !incident.history[index]) throw new NotFoundError('Registro del historial');
+    if (!bytes?.length) throw new ValidationError('Envía la imagen en el cuerpo de la petición');
+    if (bytes.length > this.#maxPhotoBytes) {
+      throw new ValidationError(`La foto supera ${(this.#maxPhotoBytes / 1024 / 1024).toFixed(0)} MB; comprímela antes de enviarla`);
+    }
+
+    const { mimeType } = await this.#workerPool.run('analyze-image', { bytes });
+    if (!mimeType) throw new ValidationError('Formato de imagen no soportado (usa JPEG, PNG o WebP)');
+
+    const url = await this.#storage.save(bytes, { mimeType });
+    incident.attachHistoryPhoto(index, url, { at: this.#clock.now() });
+    await this.#incidents.save(incident);
+    await this.#bus.publish(Events.INCIDENT_UPDATED, { incident });
     return this.view(incident);
   }
 

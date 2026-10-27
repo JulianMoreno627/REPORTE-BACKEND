@@ -54,6 +54,13 @@ export function createApiRouter(container) {
   router.get('/incidents/priority-queue', incidents.priorityQueue);
   router.get('/incidents/:id', incidents.detail);
   router.patch('/incidents/:id/status', signedIn, requireOfficial, incidents.changeStatus);
+  router.post(
+    '/incidents/:id/history/:entry/photo',
+    signedIn,
+    requireOfficial,
+    express.raw({ type: ['image/*', 'application/octet-stream'], limit: config.maxPhotoBytes + 1024 }),
+    incidents.attachHistoryPhoto,
+  );
   router.get('/heatmap', incidents.heatmap);
 
   router.get('/notifications', signedIn, notifications.list);
