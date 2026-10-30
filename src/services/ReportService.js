@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Report, PhotoCheck } from '../domain/Report.js';
 import { Incident } from '../domain/Incident.js';
 import { Coordinate } from '../domain/Coordinate.js';
@@ -8,6 +9,8 @@ import { Events } from '../infrastructure/EventBus.js';
 import { Clock } from '../infrastructure/Clock.js';
 
 const MAX_BATCH = 50;
+const AI_CACHE_TTL_MS = 15 * 60 * 1000;
+const AI_CACHE_MAX = 200;
 
 export class ReportService {
   #reports;
@@ -21,6 +24,7 @@ export class ReportService {
   #photoMaxDistance;
   #maxPhotoBytes;
   #analyzer;
+  #aiCache = new Map();
 
   constructor({
     reportRepository, incidentRepository, eventBus, reportLimiter, imageStorage, workerPool, damageAnalyzer,
@@ -119,13 +123,7 @@ export class ReportService {
     const report = await this.#reports.findById(reportId);
     if (!report) throw new NotFoundError('Reporte');
     if (report.citizenId !== user.id) throw new ForbiddenError('Solo quien creó el reporte puede adjuntar la foto');
-    if (!bytes?.length) throw new ValidationError('Envía la imagen en el cuerpo de la petición');
-    if (bytes.length > this.#maxPhotoBytes) {
-      throw new ValidationError(`La foto supera ${(this.#maxPhotoBytes / 1024 / 1024).toFixed(0)} MB; comprímela antes de enviarla`);
-    }
-
-    const analysis = await this.#workerPool.run('analyze-image', { bytes });
-    if (!analysis.mimeType) throw new ValidationError('Formato de imagen no soportado (usa JPEG, PNG o WebP)');
+    const analysis = await this.#inspectPhoto(bytes);
 
     const [url, ai] = await Promise.all([
       this.#storage.save(bytes, { mimeType: analysis.mimeType }),
@@ -148,14 +146,42 @@ export class ReportService {
     };
   }
 
+  async previewPhoto(_user, bytes) {
+    const { mimeType } = await this.#inspectPhoto(bytes);
+    return { enabled: Boolean(this.#analyzer?.enabled), ai: await this.#analyzeDamage(bytes, mimeType) };
+  }
+
+  async #inspectPhoto(bytes) {
+    if (!bytes?.length) throw new ValidationError('Envía la imagen en el cuerpo de la petición');
+    if (bytes.length > this.#maxPhotoBytes) {
+      throw new ValidationError(`La foto supera ${(this.#maxPhotoBytes / 1024 / 1024).toFixed(0)} MB; comprímela antes de enviarla`);
+    }
+    const analysis = await this.#workerPool.run('analyze-image', { bytes });
+    if (!analysis.mimeType) throw new ValidationError('Formato de imagen no soportado (usa JPEG, PNG o WebP)');
+    return analysis;
+  }
+
   async #analyzeDamage(bytes, mimeType) {
     if (!this.#analyzer?.enabled) return null;
+    const key = createHash('sha256').update(bytes).digest('hex');
+    const now = this.#clock.now().getTime();
+    const cached = this.#aiCache.get(key);
+    if (cached && cached.expiresAt > now) return cached.ai;
     try {
-      return await this.#analyzer.analyze(bytes, { mimeType });
+      const ai = await this.#analyzer.analyze(bytes, { mimeType });
+      if (ai) this.#remember(key, ai, now);
+      return ai;
     } catch (error) {
       console.error('[DamageAnalyzer] No se pudo analizar la foto:', error.message);
       return null;
     }
+  }
+
+  #remember(key, ai, now) {
+    for (const [cachedKey, entry] of this.#aiCache) {
+      if (entry.expiresAt <= now || this.#aiCache.size >= AI_CACHE_MAX) this.#aiCache.delete(cachedKey);
+    }
+    this.#aiCache.set(key, { ai, expiresAt: now + AI_CACHE_TTL_MS });
   }
 
   async listMine(user) {

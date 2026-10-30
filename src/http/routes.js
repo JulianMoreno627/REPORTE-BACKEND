@@ -49,6 +49,12 @@ export function createApiRouter(container) {
   router.post('/reports/batch', rateLimitByIp(ipLimiter), signedIn, reports.createBatch);
   router.get('/reports/mine', signedIn, reports.listMine);
   router.post(
+    '/reports/photo-analysis',
+    signedIn,
+    express.raw({ type: ['image/*', 'application/octet-stream'], limit: config.maxPhotoBytes + 1024 }),
+    reports.previewPhoto,
+  );
+  router.post(
     '/reports/:id/photo',
     signedIn,
     express.raw({ type: ['image/*', 'application/octet-stream'], limit: config.maxPhotoBytes + 1024 }),

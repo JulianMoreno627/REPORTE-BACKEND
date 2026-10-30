@@ -120,6 +120,10 @@ test('IA: el análisis de la foto se guarda en el reporte y un fallo no impide s
   };
   await withContainer(async (c) => {
     const ana = await createCitizen(c);
+    const preview = await c.reportService.previewPhoto(ana, PNG_BYTES);
+    assert.equal(preview.enabled, true);
+    assert.equal(preview.ai.category, 'POTHOLE');
+
     const { report } = await c.reportService.create(ana, input(at(0, 0)));
     const result = await c.reportService.attachPhoto(ana, report.id, PNG_BYTES);
     assert.deepEqual(analyzed, ['image/png']);
