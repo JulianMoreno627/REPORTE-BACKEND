@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326)
   GENERATED ALWAYS AS (ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography) STORED;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_analysis JSONB;
 CREATE INDEX IF NOT EXISTS reports_incident_idx ON reports (incident_id);
 CREATE INDEX IF NOT EXISTS reports_citizen_idx ON reports (citizen_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS reports_location_gix ON reports USING GIST (location);

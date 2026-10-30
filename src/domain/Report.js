@@ -23,12 +23,13 @@ export class Report extends Entity {
   #photoUrl;
   #photoCheck;
   #photoDistanceMeters;
+  #aiAnalysis;
   #clientRequestId;
 
   constructor({
     citizenId, location, category, roadType = RoadType.SECONDARY, description = '',
     incidentId = null, photoUrl = null, photoCheck = PhotoCheck.NONE, photoDistanceMeters = null,
-    clientRequestId = null, ...base
+    aiAnalysis = null, clientRequestId = null, ...base
   }) {
     super(base);
     if (!citizenId) throw new ValidationError('El reporte debe tener un ciudadano');
@@ -43,6 +44,7 @@ export class Report extends Entity {
     this.#photoUrl = photoUrl;
     this.#photoCheck = photoCheck;
     this.#photoDistanceMeters = photoDistanceMeters;
+    this.#aiAnalysis = aiAnalysis ? { ...aiAnalysis } : null;
     this.#clientRequestId = clientRequestId;
   }
 
@@ -54,16 +56,18 @@ export class Report extends Entity {
   get incidentId() { return this.#incidentId; }
   get photoUrl() { return this.#photoUrl; }
   get photoCheck() { return this.#photoCheck; }
+  get aiAnalysis() { return this.#aiAnalysis ? { ...this.#aiAnalysis } : null; }
   get clientRequestId() { return this.#clientRequestId; }
 
   assignTo(incidentId) {
     this.#incidentId = incidentId;
   }
 
-  attachPhoto(url, check, distanceMeters = null) {
+  attachPhoto(url, check, distanceMeters = null, aiAnalysis = null) {
     this.#photoUrl = url;
     this.#photoCheck = check;
     this.#photoDistanceMeters = distanceMeters === null ? null : Math.round(distanceMeters);
+    this.#aiAnalysis = aiAnalysis ? { ...aiAnalysis } : null;
   }
 
   toPublicJSON() {
@@ -78,6 +82,7 @@ export class Report extends Entity {
       photoUrl: this.#photoUrl,
       photoCheck: this.#photoCheck,
       photoDistanceMeters: this.#photoDistanceMeters,
+      aiAnalysis: this.aiAnalysis,
     };
   }
 

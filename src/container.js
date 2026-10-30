@@ -4,6 +4,7 @@ import { Clock } from './infrastructure/Clock.js';
 import { EventBus } from './infrastructure/EventBus.js';
 import { SlidingWindowRateLimiter } from './infrastructure/RateLimiter.js';
 import { LocalImageStorage, PostgresImageStorage } from './infrastructure/ImageStorage.js';
+import { DisabledDamageAnalyzer, GroqDamageAnalyzer } from './infrastructure/DamageAnalyzer.js';
 import {
   IncidentRepository, NotificationRepository, ReportRepository, UserRepository,
 } from './repositories/repositories.js';
@@ -29,7 +30,7 @@ function storageName(config) {
 }
 
 export function createContainer(overrides = {}) {
-  const { clock = new Clock(), ...configOverrides } = overrides;
+  const { clock = new Clock(), damageAnalyzer: analyzerOverride, ...configOverrides } = overrides;
   const config = { ...defaultConfig, ...configOverrides };
 
   const pool = config.databaseUrl
@@ -62,6 +63,9 @@ export function createContainer(overrides = {}) {
   const imageStorage = pool
     ? new PostgresImageStorage({ pool })
     : new LocalImageStorage({ directory: config.uploadsDir });
+  const damageAnalyzer = analyzerOverride ?? (config.groqApiKey
+    ? new GroqDamageAnalyzer({ apiKey: config.groqApiKey, model: config.aiModel, timeoutMs: config.aiTimeoutMs })
+    : new DisabledDamageAnalyzer());
 
   const eventBus = new EventBus();
   const workerPool = new WorkerPool(new URL('./workers/task-worker.js', import.meta.url), { size: config.workerPoolSize });
@@ -73,7 +77,7 @@ export function createContainer(overrides = {}) {
   const authService = new AuthService({ userRepository, tokenSecret: config.tokenSecret, officialInviteCode: config.officialInviteCode, clock });
   const reportService = new ReportService({
     reportRepository, incidentRepository, eventBus, reportLimiter, workerPool, clock,
-    imageStorage,
+    imageStorage, damageAnalyzer,
     clusterRadiusMeters: config.clusterRadiusMeters,
     photoMaxDistanceMeters: config.photoMaxDistanceMeters,
     maxPhotoBytes: config.maxPhotoBytes,
@@ -96,7 +100,7 @@ export function createContainer(overrides = {}) {
   pruneTimer.unref();
 
   const container = {
-    config, clock, eventBus, workerPool, pool, persistence, imageStorage, isrCache, ipLimiter, reportLimiter, priorityStrategy,
+    config, clock, eventBus, workerPool, pool, persistence, imageStorage, damageAnalyzer, isrCache, ipLimiter, reportLimiter, priorityStrategy,
     storage: storageName(config),
     userRepository, reportRepository, incidentRepository, notificationRepository, repositories,
     authService, reportService, incidentService, heatmapService, consolidationService, notificationService, metricsService,

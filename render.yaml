@@ -39,3 +39,5 @@ services:
         value: "4.6097"
       - key: CITY_LNG
         value: "-74.0817"
+      - key: GROQ_API_KEY
+        sync: false

@@ -20,11 +20,13 @@ export class ReportService {
   #workerPool;
   #photoMaxDistance;
   #maxPhotoBytes;
+  #analyzer;
 
   constructor({
-    reportRepository, incidentRepository, eventBus, reportLimiter, imageStorage, workerPool,
+    reportRepository, incidentRepository, eventBus, reportLimiter, imageStorage, workerPool, damageAnalyzer,
     clock = new Clock(), clusterRadiusMeters = 30, photoMaxDistanceMeters = 150, maxPhotoBytes = 2 * 1024 * 1024,
   }) {
+    this.#analyzer = damageAnalyzer;
     this.#reports = reportRepository;
     this.#incidents = incidentRepository;
     this.#bus = eventBus;
@@ -125,19 +127,35 @@ export class ReportService {
     const analysis = await this.#workerPool.run('analyze-image', { bytes });
     if (!analysis.mimeType) throw new ValidationError('Formato de imagen no soportado (usa JPEG, PNG o WebP)');
 
-    const url = await this.#storage.save(bytes, { mimeType: analysis.mimeType });
+    const [url, ai] = await Promise.all([
+      this.#storage.save(bytes, { mimeType: analysis.mimeType }),
+      this.#analyzeDamage(bytes, analysis.mimeType),
+    ]);
     let check = PhotoCheck.NO_GPS;
     let distance = null;
     if (analysis.gps) {
       distance = report.location.distanceTo(Coordinate.from(analysis.gps));
       check = distance <= this.#photoMaxDistance ? PhotoCheck.VERIFIED : PhotoCheck.MISMATCH;
     }
-    report.attachPhoto(url, check, distance);
+    report.attachPhoto(url, check, distance, ai);
     await this.#reports.save(report);
 
     const incident = await this.#incidents.findById(report.incidentId);
     await this.#bus.publish(Events.REPORT_UPDATED, { report, incident });
-    return { report, analysis: { ...analysis, photoCheck: check, distanceMeters: distance === null ? null : Math.round(distance) } };
+    return {
+      report,
+      analysis: { ...analysis, photoCheck: check, distanceMeters: distance === null ? null : Math.round(distance), ai },
+    };
+  }
+
+  async #analyzeDamage(bytes, mimeType) {
+    if (!this.#analyzer?.enabled) return null;
+    try {
+      return await this.#analyzer.analyze(bytes, { mimeType });
+    } catch (error) {
+      console.error('[DamageAnalyzer] No se pudo analizar la foto:', error.message);
+      return null;
+    }
   }
 
   async listMine(user) {

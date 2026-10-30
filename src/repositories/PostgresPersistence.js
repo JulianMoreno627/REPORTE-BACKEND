@@ -28,16 +28,16 @@ const TABLES = {
   },
   reports: {
     table: 'reports',
-    columns: ['id', 'incident_id', 'citizen_id', 'lat', 'lng', 'category', 'road_type', 'description', 'photo_url', 'photo_check', 'photo_distance_m', 'client_request_id', 'created_at'],
+    columns: ['id', 'incident_id', 'citizen_id', 'lat', 'lng', 'category', 'road_type', 'description', 'photo_url', 'photo_check', 'photo_distance_m', 'ai_analysis', 'client_request_id', 'created_at'],
     toRow: (r) => [
       r.id, r.incidentId, r.citizenId, r.location.lat, r.location.lng, r.category, r.roadType, r.description,
-      r.photoUrl, r.photoCheck, r.photoDistanceMeters, r.clientRequestId, r.createdAt,
+      r.photoUrl, r.photoCheck, r.photoDistanceMeters, json(r.aiAnalysis), r.clientRequestId, r.createdAt,
     ],
     fromRow: (row) => ({
       id: row.id, incidentId: row.incident_id, citizenId: row.citizen_id, location: { lat: row.lat, lng: row.lng },
       category: row.category, roadType: row.road_type, description: row.description, photoUrl: row.photo_url,
-      photoCheck: row.photo_check, photoDistanceMeters: row.photo_distance_m, clientRequestId: row.client_request_id,
-      createdAt: row.created_at,
+      photoCheck: row.photo_check, photoDistanceMeters: row.photo_distance_m, aiAnalysis: row.ai_analysis,
+      clientRequestId: row.client_request_id, createdAt: row.created_at,
     }),
   },
   notifications: {

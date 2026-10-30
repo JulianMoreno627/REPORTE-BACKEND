@@ -22,7 +22,12 @@ export function createApiRouter(container) {
   const signedIn = authenticate(authService);
   const router = Router();
 
-  router.get('/health', (_req, res) => res.json({ status: 'ok', storage: container.storage, time: new Date().toISOString() }));
+  router.get('/health', (_req, res) => res.json({
+    status: 'ok',
+    storage: container.storage,
+    ai: container.damageAnalyzer.enabled ? container.damageAnalyzer.model : 'disabled',
+    time: new Date().toISOString(),
+  }));
 
   router.get('/catalog', (_req, res) => {
     res.set('Cache-Control', 'public, max-age=3600');

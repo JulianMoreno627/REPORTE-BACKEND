@@ -109,6 +109,34 @@ test('Foto: el GPS del EXIF verifica o marca como sospechoso el reporte',() => w
   await assert.rejects(c.reportService.attachPhoto(caro, png.report.id, Buffer.from('no es imagen')), { status: 400 });
 }));
 
+test('IA: el análisis de la foto se guarda en el reporte y un fallo no impide subirla', async () => {
+  const analyzed = [];
+  const analyzer = {
+    enabled: true,
+    analyze: async (bytes, { mimeType }) => {
+      analyzed.push(mimeType);
+      return { isRoad: true, category: 'POTHOLE', risk: 'HIGH', confidence: 0.9, reason: 'Bache profundo', model: 'fake' };
+    },
+  };
+  await withContainer(async (c) => {
+    const ana = await createCitizen(c);
+    const { report } = await c.reportService.create(ana, input(at(0, 0)));
+    const result = await c.reportService.attachPhoto(ana, report.id, PNG_BYTES);
+    assert.deepEqual(analyzed, ['image/png']);
+    assert.equal(result.analysis.ai.risk, 'HIGH');
+    assert.equal((await c.reportRepository.findById(report.id)).toJSON().aiAnalysis.category, 'POTHOLE');
+  }, { damageAnalyzer: analyzer });
+
+  const failing = { enabled: true, analyze: async () => { throw new Error('sin cuota'); } };
+  await withContainer(async (c) => {
+    const ana = await createCitizen(c);
+    const { report } = await c.reportService.create(ana, input(at(0, 0)));
+    const result = await c.reportService.attachPhoto(ana, report.id, PNG_BYTES);
+    assert.equal(result.analysis.ai, null);
+    assert.match(result.report.photoUrl, /^\/uploads\//);
+  }, { damageAnalyzer: failing });
+});
+
 test('Consolidación DBSCAN (en worker) une incidentes que quedaron duplicados', () => withContainer(async (c) => {
   const make = (citizenId, point, minutes) => new Report({ citizenId, location: point, category: 'POTHOLE', createdAt: new Date(Date.UTC(2026, 9, 1, 12, minutes)) });
   const a = await c.reportService.importReport(make('u1', at(0, 0), 0));

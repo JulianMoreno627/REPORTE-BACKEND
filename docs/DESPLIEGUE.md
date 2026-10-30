@@ -27,6 +27,7 @@ Cada proyecto va en su propio repositorio de GitHub, porque Render y Vercel desp
    | `OFFICIAL_INVITE_CODE` | El código con el que se registrarán los funcionarios (invéntalo y guárdalo) |
    | `ALLOWED_ORIGINS` | `https://<tu-app>.vercel.app,https://*.vercel.app` |
    | `FRONTEND_URL` | `https://<tu-app>.vercel.app` |
+   | `GROQ_API_KEY` | Clave de <https://console.groq.com/keys> (análisis de fotos con IA; vacía = sin IA) |
 
    Si todavía no tienes la URL de Vercel, pon un valor provisional y cámbialo después en **Environment**.
 4. Si el servicio quedó con otro nombre, corrige `PUBLIC_BASE_URL` con la URL real (`https://<servicio>.onrender.com`).

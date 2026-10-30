@@ -10,7 +10,7 @@ export async function createTestContainer(overrides = {}) {
   const uploadsDir = await mkdtemp(join(tmpdir(), 'vias-uploads-'));
   const clock = new FixedClock('2026-10-01T12:00:00Z');
   const container = createContainer({
-    databaseUrl: null, dataPath: null, uploadsDir, clock, workerPoolSize: 1, isrTtlMs: 60_000, ...overrides,
+    databaseUrl: null, dataPath: null, uploadsDir, clock, workerPoolSize: 1, isrTtlMs: 60_000, groqApiKey: null, ...overrides,
   });
   await container.init();
   return container;

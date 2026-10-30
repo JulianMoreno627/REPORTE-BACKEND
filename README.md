@@ -18,6 +18,7 @@ El código (clases, funciones, variables, archivos y rutas de la API) está en i
 | Base de datos | PostgreSQL + **PostGIS** (columnas `GEOGRAPHY(Point, 4326)`, índices GIST, `ST_DWithin`) |
 | Administración de la base | pgAdmin 4 (local y Render) |
 | Hilos | Worker Threads (`WorkerPool`) |
+| IA | Groq API, modelo de visión `qwen/qwen3.8-27b`: tipo de daño, riesgo y si la foto muestra una vía |
 | Despliegue | Render (API + PostgreSQL) · Vercel (frontend) |
 
 ## Puesta en marcha local
@@ -53,7 +54,7 @@ npm install
 npm run db:import   # opcional: copia a PostgreSQL los datos de data/db.json y las fotos de public/uploads
 npm start           # genera la página SSG y levanta la API en http://localhost:3000
 npm run dev         # modo desarrollo (reinicia al guardar)
-npm test            # 28 pruebas
+npm test            # 32 pruebas
 ```
 
 `GET http://localhost:3000/api/health` responde `"storage": "postgresql+postgis"` cuando está conectado a la base.
@@ -200,3 +201,5 @@ Errores: `{ error: { code, message, details } }` con el estado HTTP correspondie
 | `CONSOLIDATION_INTERVAL_MS` | Cada cuánto corre DBSCAN (`0` = nunca) | `600000` |
 | `PRIORITY_STRATEGY` | `weighted` o `count` | `weighted` |
 | `CITY_LAT` · `CITY_LNG` | Centro inicial del mapa | `4.6097` · `-74.0817` |
+| `GROQ_API_KEY` | Clave de Groq para analizar las fotos con IA. Vacía = sin IA | `gsk_…` |
+| `AI_MODEL` · `AI_TIMEOUT_MS` | Modelo de visión de Groq y tiempo máximo de espera | `qwen/qwen3.8-27b` · `15000` |
