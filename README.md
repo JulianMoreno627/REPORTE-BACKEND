@@ -7,6 +7,7 @@ API REST y renderizado en servidor de la plataforma de **reporte y seguimiento c
 - Frontend: carpeta `CASO-DE-ESTUDIO-REPORTE-DE-SEGUIMIENTO-FRONTEND`
 - Despliegue (Neon + Render + Vercel + pgAdmin): [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md)
 - Informe del avance: [`docs/INFORME-AVANCE-1.md`](docs/INFORME-AVANCE-1.md)
+- Hilos, workers, patrones de rendering (CSR/SSR/SSG/ISR) con sus trade-offs y contract-first: [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md)
 
 El código (clases, funciones, variables, archivos y rutas de la API) está en inglés. Los textos que ve el usuario están en español.
 
