@@ -12,7 +12,7 @@ Responde solo con JSON de esta forma:
 - category: POTHOLE (bache), SINKHOLE (hundimiento), MANHOLE (alcantarilla abierta o dañada), SIGNAGE (señal de tránsito dañada o faltante), CRACK (grieta o fisura), OTHER (otro daño vial) o NONE (sin daño visible).
 - risk: HIGH si puede causar un accidente o daño a vehículos ya; MEDIUM si es un daño notable que empeorará; LOW si es superficial o menor.
 - confidence: número entre 0 y 1.
-- reason: una frase en español de máximo ${MAX_REASON} caracteres que explique lo que ves.`;
+- reason: una frase en español correcto (con tildes y ñ) de máximo ${MAX_REASON} caracteres que explique lo que ves.`;
 
 export class DamageAnalyzer {
   constructor() {

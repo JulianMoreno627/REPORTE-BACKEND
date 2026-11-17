@@ -22,7 +22,7 @@ Cada proyecto va en su propio repositorio de GitHub, porque Render y Vercel desp
    - *Postgres version*: la más reciente
    - *Region*: **AWS US East (N. Virginia)**, la más cercana a Render (Virginia)
    - *Database name*: `vias_seguras`
-2. En **Connect** copia la *connection string* **sin** la opción *Connection pooling* (conexión directa). Tiene la forma `postgresql://usuario:clave@ep-xxx.us-east-1.aws.neon.tech/vias_seguras?sslmode=require`.
+2. En **Connect** copia la *connection string* **sin** la opción *Connection pooling* (conexión directa). Tiene la forma `postgresql://usuario:clave@ep-xxx.us-east-1.aws.neon.tech/vias_seguras?sslmode=require`. Cambia `sslmode=require` por **`sslmode=verify-full`**: es lo que la librería `pg` ya aplica y así no muestra el aviso de seguridad al conectar.
 
 **PostGIS no se instala a mano:** Neon lo trae disponible y el backend, al arrancar, ejecuta `db/schema.sql`, que hace `CREATE EXTENSION IF NOT EXISTS postgis` y crea las tablas, los índices GIST y las vistas.
 
@@ -91,7 +91,8 @@ Si la base estaba pausada, la primera conexión tarda unos segundos.
 | «No pudimos conectar con el servidor» | `VITE_API_URL` mal escrita, o el servicio de Render está despertando |
 | Error de CORS en la consola | Falta la URL de Vercel en `ALLOWED_ORIGINS` |
 | `PostGIS no está instalado en el servidor PostgreSQL` | Local: instala PostGIS con Stack Builder (ver README) |
-| `self-signed certificate` / `SSL required` | Agrega `?sslmode=require` a la URL de Neon o fuerza `DATABASE_SSL=true` |
+| `self-signed certificate` / `SSL required` | Agrega `?sslmode=verify-full` a la URL de Neon o fuerza `DATABASE_SSL=true` |
+| `SECURITY WARNING: The SSL modes ...` al conectar | La URL usa `sslmode=require`; cámbialo por `sslmode=verify-full` |
 | `[pg] Se cerró una conexión inactiva` en los logs | Normal con Neon: la base se pausó; la siguiente consulta abre otra conexión |
 | `"ai":"disabled"` en `/api/health` | No hay `GROQ_API_KEY` ni `GEMINI_API_KEY` en Render |
 | Todas las sesiones se cerraron | Cambió `TOKEN_SECRET` |
