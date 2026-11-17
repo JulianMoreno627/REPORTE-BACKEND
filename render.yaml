@@ -1,16 +1,9 @@
-databases:
-  - name: vias-seguras-db
-    databaseName: vias_seguras
-    user: vias
-    plan: free
-    region: oregon
-
 services:
   - type: web
     name: vias-seguras-api
     runtime: node
     plan: free
-    region: oregon
+    region: virginia
     buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /api/health
@@ -18,9 +11,7 @@ services:
       - key: NODE_VERSION
         value: "22"
       - key: DATABASE_URL
-        fromDatabase:
-          name: vias-seguras-db
-          property: connectionString
+        sync: false
       - key: TOKEN_SECRET
         generateValue: true
       - key: OFFICIAL_INVITE_CODE
@@ -36,9 +27,9 @@ services:
       - key: WORKERS
         value: "1"
       - key: CITY_LAT
-        value: "4.6097"
+        value: "1.2136"
       - key: CITY_LNG
-        value: "-74.0817"
+        value: "-77.2811"
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY

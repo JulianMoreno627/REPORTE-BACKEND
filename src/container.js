@@ -31,6 +31,18 @@ function storageName(config) {
   return config.dataPath ? 'json' : 'memory';
 }
 
+export function createPool({ databaseUrl, databaseSsl }) {
+  const pool = new pg.Pool({
+    connectionString: databaseUrl,
+    ssl: databaseSsl ? { rejectUnauthorized: false } : false,
+    max: 5,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 20_000,
+  });
+  pool.on('error', (error) => console.error('[pg] Se cerró una conexión inactiva:', error.message));
+  return pool;
+}
+
 function createDamageAnalyzer(config) {
   const providers = [];
   if (config.groqApiKey) {
@@ -46,13 +58,7 @@ export function createContainer(overrides = {}) {
   const { clock = new Clock(), damageAnalyzer: analyzerOverride, ...configOverrides } = overrides;
   const config = { ...defaultConfig, ...configOverrides };
 
-  const pool = config.databaseUrl
-    ? new pg.Pool({
-      connectionString: config.databaseUrl,
-      ssl: config.databaseSsl ? { rejectUnauthorized: false } : false,
-      max: 5,
-    })
-    : null;
+  const pool = config.databaseUrl ? createPool(config) : null;
 
   let persistence = null;
   let metricsService = null;

@@ -11,6 +11,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "db:import": "node scripts/import-json.js",
+    "db:copy": "node scripts/copy-db.js",
     "test": "node --test \"test/**/*.test.js\""
   },
   "engines": {

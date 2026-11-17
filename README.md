@@ -5,7 +5,7 @@ API REST y renderizado en servidor de la plataforma de **reporte y seguimiento c
 **Autor:** Julian Moreno
 
 - Frontend: carpeta `CASO-DE-ESTUDIO-REPORTE-DE-SEGUIMIENTO-FRONTEND`
-- Despliegue (Render + Vercel + pgAdmin): [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md)
+- Despliegue (Neon + Render + Vercel + pgAdmin): [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md)
 - Informe del avance: [`docs/INFORME-AVANCE-1.md`](docs/INFORME-AVANCE-1.md)
 
 El código (clases, funciones, variables, archivos y rutas de la API) está en inglés. Los textos que ve el usuario están en español.
@@ -16,10 +16,10 @@ El código (clases, funciones, variables, archivos y rutas de la API) está en i
 |---|---|
 | Servidor | Node.js 20.12+ · Express 5 |
 | Base de datos | PostgreSQL + **PostGIS** (columnas `GEOGRAPHY(Point, 4326)`, índices GIST, `ST_DWithin`) |
-| Administración de la base | pgAdmin 4 (local y Render) |
+| Administración de la base | pgAdmin 4 (local y Neon) |
 | Hilos | Worker Threads (`WorkerPool`) |
 | IA | Groq (`qwen/qwen3.8-27b`) con respaldo automático en Gemini (`gemini-3.5-flash-lite`): tipo de daño, riesgo y si la foto muestra una vía |
-| Despliegue | Render (API + PostgreSQL) · Vercel (frontend) |
+| Despliegue | Neon (PostgreSQL + PostGIS) · Render (API) · Vercel (frontend) |
 
 ## Puesta en marcha local
 
@@ -52,6 +52,7 @@ DATABASE_URL=postgres://postgres:TU_CLAVE@localhost:5432/vias_seguras
 ```bash
 npm install
 npm run db:import   # opcional: copia a PostgreSQL los datos de data/db.json y las fotos de public/uploads
+npm run db:copy     # opcional: copia una base a otra (SOURCE_DATABASE_URL → DATABASE_URL), p. ej. Render → Neon
 npm start           # genera la página SSG y levanta la API en http://localhost:3000
 npm run dev         # modo desarrollo (reinicia al guardar)
 npm test            # 35 pruebas
@@ -149,9 +150,9 @@ src/
 ├── container.js     Raíz de composición (inyección de dependencias)
 ├── app.js           Aplicación Express
 └── server.js        Arranque y apagado ordenado
-scripts/             build-ssg.js (SSG) · import-json.js (data/db.json → PostgreSQL)
+scripts/             build-ssg.js (SSG) · import-json.js (data/db.json → PostgreSQL) · copy-db.js (base → base, p. ej. Render → Neon)
 db/schema.sql        Esquema PostgreSQL + PostGIS (idempotente, lo ejecuta la app al arrancar)
-render.yaml          Blueprint de Render: base de datos + servicio web
+render.yaml          Blueprint de Render: servicio web (la base está en Neon)
 test/                Pruebas con node:test (postgis.test.js usa TEST_DATABASE_URL)
 ```
 
