@@ -4,7 +4,9 @@ import { Clock } from './infrastructure/Clock.js';
 import { EventBus } from './infrastructure/EventBus.js';
 import { SlidingWindowRateLimiter } from './infrastructure/RateLimiter.js';
 import { LocalImageStorage, PostgresImageStorage } from './infrastructure/ImageStorage.js';
-import { DisabledDamageAnalyzer, GroqDamageAnalyzer } from './infrastructure/DamageAnalyzer.js';
+import {
+  DisabledDamageAnalyzer, FallbackDamageAnalyzer, GeminiDamageAnalyzer, GroqDamageAnalyzer,
+} from './infrastructure/DamageAnalyzer.js';
 import {
   IncidentRepository, NotificationRepository, ReportRepository, UserRepository,
 } from './repositories/repositories.js';
@@ -27,6 +29,17 @@ const HOUR_MS = 60 * 60 * 1000;
 function storageName(config) {
   if (config.databaseUrl) return 'postgresql+postgis';
   return config.dataPath ? 'json' : 'memory';
+}
+
+function createDamageAnalyzer(config) {
+  const providers = [];
+  if (config.groqApiKey) {
+    providers.push(new GroqDamageAnalyzer({ apiKey: config.groqApiKey, model: config.aiModel, timeoutMs: config.aiTimeoutMs }));
+  }
+  if (config.geminiApiKey) {
+    providers.push(new GeminiDamageAnalyzer({ apiKey: config.geminiApiKey, model: config.geminiModel, timeoutMs: config.aiTimeoutMs }));
+  }
+  return providers.length > 0 ? new FallbackDamageAnalyzer(providers) : new DisabledDamageAnalyzer();
 }
 
 export function createContainer(overrides = {}) {
@@ -63,9 +76,7 @@ export function createContainer(overrides = {}) {
   const imageStorage = pool
     ? new PostgresImageStorage({ pool })
     : new LocalImageStorage({ directory: config.uploadsDir });
-  const damageAnalyzer = analyzerOverride ?? (config.groqApiKey
-    ? new GroqDamageAnalyzer({ apiKey: config.groqApiKey, model: config.aiModel, timeoutMs: config.aiTimeoutMs })
-    : new DisabledDamageAnalyzer());
+  const damageAnalyzer = analyzerOverride ?? createDamageAnalyzer(config);
 
   const eventBus = new EventBus();
   const workerPool = new WorkerPool(new URL('./workers/task-worker.js', import.meta.url), { size: config.workerPoolSize });

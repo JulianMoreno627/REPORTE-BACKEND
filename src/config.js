@@ -39,5 +39,7 @@ export const config = Object.freeze({
   cityCenter: { lat: Number(env.CITY_LAT ?? 4.6097), lng: Number(env.CITY_LNG ?? -74.0817) },
   groqApiKey: env.GROQ_API_KEY || null,
   aiModel: env.AI_MODEL || 'qwen/qwen3.8-27b',
+  geminiApiKey: env.GEMINI_API_KEY || null,
+  geminiModel: env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
   aiTimeoutMs: Number(env.AI_TIMEOUT_MS ?? 15_000),
 });

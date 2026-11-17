@@ -41,3 +41,5 @@ services:
         value: "-74.0817"
       - key: GROQ_API_KEY
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
