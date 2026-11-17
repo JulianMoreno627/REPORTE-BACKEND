@@ -54,6 +54,19 @@ test('Contrato: cada ruta de Express está en openapi.json y cada operación del
   assert.equal(new Set(operations.map((item) => item.operationId)).size, operations.length);
 });
 
+test('Contrato: CORS permite desde el navegador todos los métodos que usa el contrato', async () => {
+  const origin = container.config.allowedOrigins[0];
+  for (const { method, expressPath } of operations) {
+    const response = await fetch(base + expressPath.replace(/:(\w+)/g, 'x'), {
+      method: 'OPTIONS',
+      headers: { Origin: origin, 'Access-Control-Request-Method': method, 'Access-Control-Request-Headers': 'authorization,content-type' },
+    });
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get('access-control-allow-origin'), origin);
+    assert.ok(response.headers.get('access-control-allow-methods').split(',').includes(method), `CORS no permite ${method} ${expressPath}`);
+  }
+});
+
 test('Contrato: las respuestas reales cumplen los esquemas de openapi.json', async () => {
   await call('getHealth', '/api/health');
   await call('getCatalog', '/api/catalog');
