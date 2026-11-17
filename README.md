@@ -56,7 +56,7 @@ npm run db:import   # opcional: copia a PostgreSQL los datos de data/db.json y l
 npm run db:copy     # opcional: copia una base a otra (SOURCE_DATABASE_URL → DATABASE_URL), p. ej. Render → Neon
 npm start           # genera la página SSG y levanta la API en http://localhost:3000
 npm run dev         # modo desarrollo (reinicia al guardar)
-npm test            # 38 pruebas
+npm test            # 39 pruebas
 ```
 
 `GET http://localhost:3000/api/health` responde `"storage": "postgresql+postgis"` cuando está conectado a la base.
@@ -181,6 +181,9 @@ El detalle completo (esquemas de petición y respuesta) está en el contrato: `/
 | POST | `/api/auth/register` | `{ name, email, password }` (ciudadano). Funcionario: `role: 'OFFICIAL', inviteCode` |
 | POST | `/api/auth/login` | `{ email, password, role? }` → `{ token, user }` |
 | GET | `/api/auth/me` | Usuario de la sesión (`Authorization: Bearer <token>`) |
+| PATCH | `/api/profile` | Editar nombre, correo, teléfono (y dependencia si es funcionario) |
+| PUT | `/api/profile/password` | Cambiar la contraseña con la actual |
+| PUT · DELETE | `/api/profile/avatar` | Subir (analizada en un Worker) o quitar la foto de perfil |
 | POST | `/api/reports` | `{ lat, lng, category, roadType?, description?, clientRequestId? }`: se une a un incidente abierto a ≤ 30 m o abre uno nuevo |
 | POST | `/api/reports/batch` | `{ reports: [...] }`: sincronización de reportes hechos sin conexión (idempotente) |
 | POST | `/api/reports/:id/photo` | Cuerpo binario `image/jpeg\|png\|webp` (≤ 2 MB), analizado en un Worker |

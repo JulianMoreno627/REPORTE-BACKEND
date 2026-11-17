@@ -64,6 +64,12 @@ test('Contrato: las respuestas reales cumplen los esquemas de openapi.json', asy
   })).json;
   await call('login', '/api/auth/login', { body: { email: 'ana@contrato.co', password: 'secreto1', role: 'CITIZEN' } });
   await call('me', '/api/auth/me', { token: citizen.token });
+  await call('updateProfile', '/api/profile', { token: citizen.token, body: { name: 'Ana Gómez', phone: '3001234567' } });
+  await call('updateProfile', '/api/profile', { token: official.token, body: { agency: 'Secretaría de Infraestructura' } });
+  await call('changePassword', '/api/profile/password', { token: citizen.token, body: { currentPassword: 'secreto1', newPassword: 'secreto2' } });
+  const { json: withAvatar } = await call('uploadAvatar', '/api/profile/avatar', { token: official.token, body: PNG_BYTES, contentType: 'image/png' });
+  assert.match(withAvatar.user.avatarUrl, /^\/uploads\//);
+  await call('removeAvatar', '/api/profile/avatar', { token: official.token });
 
   const point = offsetMeters(CENTER, 0, 0);
   await call('analyzePhoto', '/api/reports/photo-analysis', { token: citizen.token, body: PNG_BYTES, contentType: 'image/png' });
@@ -103,6 +109,11 @@ test('Contrato: una petición que no lo cumple se rechaza antes de llegar al con
   assert.equal(status, 400);
   assert.equal(json.error.code, 'VALIDATION_ERROR');
   assert.match(json.error.message, /contrato.*«category» debe ser uno de/);
+
+  const empty = await call('updateProfile', '/api/profile', { token: session.token, body: {} });
+  assert.equal(empty.status, 400);
+  const extra = await call('updateProfile', '/api/profile', { token: session.token, body: { role: 'OFFICIAL' } });
+  assert.equal(extra.status, 400);
 
   const missing = await call('register', '/api/auth/register', { body: { email: 'sin-nombre@contrato.co', password: 'secreto1' } });
   assert.equal(missing.status, 400);

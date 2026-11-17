@@ -6,11 +6,11 @@ const json = (value) => JSON.stringify(value ?? null);
 const TABLES = {
   users: {
     table: 'users',
-    columns: ['id', 'name', 'email', 'password_hash', 'role', 'agency', 'created_at'],
-    toRow: (r) => [r.id, r.name, r.email, r.passwordHash, r.role, r.agency ?? null, r.createdAt],
+    columns: ['id', 'name', 'email', 'password_hash', 'role', 'agency', 'phone', 'avatar_url', 'created_at'],
+    toRow: (r) => [r.id, r.name, r.email, r.passwordHash, r.role, r.agency ?? null, r.phone ?? null, r.avatarUrl ?? null, r.createdAt],
     fromRow: (row) => ({
       id: row.id, name: row.name, email: row.email, passwordHash: row.password_hash,
-      role: row.role, agency: row.agency ?? undefined, createdAt: row.created_at,
+      role: row.role, agency: row.agency ?? undefined, phone: row.phone, avatarUrl: row.avatar_url, createdAt: row.created_at,
     }),
   },
   incidents: {

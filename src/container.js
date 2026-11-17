@@ -16,6 +16,7 @@ import { PostgresPersistence } from './repositories/PostgresPersistence.js';
 import { WorkerPool } from './workers/WorkerPool.js';
 import { createPriorityStrategy } from './domain/priority/strategies.js';
 import { AuthService } from './services/AuthService.js';
+import { ProfileService } from './services/ProfileService.js';
 import { ReportService } from './services/ReportService.js';
 import { IncidentService } from './services/IncidentService.js';
 import { HeatmapService } from './services/HeatmapService.js';
@@ -92,6 +93,7 @@ export function createContainer(overrides = {}) {
   const isrCache = new IsrCache({ ttlMs: config.isrTtlMs, clock });
 
   const authService = new AuthService({ userRepository, tokenSecret: config.tokenSecret, officialInviteCode: config.officialInviteCode, clock });
+  const profileService = new ProfileService({ userRepository, imageStorage, workerPool, maxPhotoBytes: config.maxPhotoBytes });
   const reportService = new ReportService({
     reportRepository, incidentRepository, eventBus, reportLimiter, workerPool, clock,
     imageStorage, damageAnalyzer,
@@ -120,7 +122,7 @@ export function createContainer(overrides = {}) {
     config, clock, eventBus, workerPool, pool, persistence, imageStorage, damageAnalyzer, isrCache, ipLimiter, reportLimiter, priorityStrategy,
     storage: storageName(config),
     userRepository, reportRepository, incidentRepository, notificationRepository, repositories,
-    authService, reportService, incidentService, heatmapService, consolidationService, notificationService, metricsService,
+    authService, profileService, reportService, incidentService, heatmapService, consolidationService, notificationService, metricsService,
 
     async init() {
       if (persistence) {

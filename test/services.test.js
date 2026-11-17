@@ -189,3 +189,32 @@ test('Autenticación: registro, login, token y código de funcionario', () => wi
   assert.equal((await c.authService.login({ email: 'ana@test.co', password: 'secreto1', role: 'CITIZEN' })).user.id, user.id);
   await assert.rejects(c.authService.login({ email: 'ana@test.co', password: 'secreto1', role: 'OFFICIAL' }), { status: 403 });
 }));
+
+test('Perfil: editar datos, cambiar contraseña y foto, para ciudadano y funcionario', () => withContainer(async (c) => {
+  const ana = await createCitizen(c, 'Ana');
+  const official = await createOfficial(c);
+  const other = await createCitizen(c, 'Beto');
+
+  await c.profileService.update(ana, { name: 'Ana María', phone: '+57 300 123 4567' });
+  assert.equal(ana.toJSON().name, 'Ana María');
+  assert.equal(ana.toJSON().phone, '+57 300 123 4567');
+  await assert.rejects(c.profileService.update(ana, { email: other.email }), { status: 409 });
+  await assert.rejects(c.profileService.update(ana, { phone: 'llámame' }), { status: 400 });
+  await assert.rejects(c.profileService.update(ana, { agency: 'Movilidad' }), { status: 400 });
+  await assert.rejects(c.profileService.update(ana, { name: 'X', phone: '3001112233' }), { status: 400 });
+  assert.equal(ana.phone, '+57 300 123 4567');
+
+  await c.profileService.update(official, { agency: 'Secretaría de Infraestructura' });
+  assert.equal(official.toJSON().agency, 'Secretaría de Infraestructura');
+
+  await assert.rejects(c.profileService.changePassword(ana, { currentPassword: 'equivocada', newPassword: 'nueva123' }), { status: 400 });
+  await c.profileService.changePassword(ana, { currentPassword: 'secreto1', newPassword: 'nueva123' });
+  await assert.rejects(c.authService.login({ email: ana.email, password: 'secreto1' }), { status: 401 });
+  assert.equal((await c.authService.login({ email: ana.email, password: 'nueva123' })).user.id, ana.id);
+
+  await c.profileService.setAvatar(official, PNG_BYTES);
+  assert.match(official.toJSON().avatarUrl, /^\/uploads\/.+\.png$/);
+  await assert.rejects(c.profileService.setAvatar(official, Buffer.from('no es imagen')), { status: 400 });
+  await c.profileService.removeAvatar(official);
+  assert.equal(official.toJSON().avatarUrl, null);
+}));

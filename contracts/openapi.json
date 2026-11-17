@@ -10,7 +10,7 @@
     { "url": "http://localhost:3000", "description": "Local" }
   ],
   "tags": [
-    { "name": "Sistema" }, { "name": "Autenticación" }, { "name": "Reportes" }, { "name": "Incidentes" },
+    { "name": "Sistema" }, { "name": "Autenticación" }, { "name": "Perfil" }, { "name": "Reportes" }, { "name": "Incidentes" },
     { "name": "Notificaciones" }, { "name": "Panel" }, { "name": "Métricas" }
   ],
   "paths": {
@@ -67,6 +67,58 @@
         "tags": ["Autenticación"], "operationId": "me", "summary": "Usuario de la sesión", "security": [{ "bearerAuth": [] }],
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "required": ["user"], "properties": { "user": { "$ref": "#/components/schemas/User" } } } } } },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/profile": {
+      "patch": {
+        "tags": ["Perfil"], "operationId": "updateProfile", "summary": "Editar los datos del perfil (ciudadano o funcionario)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateProfileRequest" } } } },
+        "responses": {
+          "200": { "$ref": "#/components/responses/UserResponse" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/profile/password": {
+      "put": {
+        "tags": ["Perfil"], "operationId": "changePassword", "summary": "Cambiar la contraseña (requiere la actual)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["currentPassword", "newPassword"],
+          "properties": {
+            "currentPassword": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "newPassword": { "type": "string", "minLength": 6, "maxLength": 200 }
+          }
+        } } } },
+        "responses": {
+          "200": { "$ref": "#/components/responses/UserResponse" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/profile/avatar": {
+      "put": {
+        "tags": ["Perfil"], "operationId": "uploadAvatar", "summary": "Subir o reemplazar la foto de perfil",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "$ref": "#/components/requestBodies/Photo" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/UserResponse" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "413": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "delete": {
+        "tags": ["Perfil"], "operationId": "removeAvatar", "summary": "Quitar la foto de perfil",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/UserResponse" },
           "401": { "$ref": "#/components/responses/Error" }
         }
       }
@@ -339,7 +391,11 @@
       }
     },
     "responses": {
-      "Error": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+      "Error": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "UserResponse": {
+        "description": "Usuario actualizado",
+        "content": { "application/json": { "schema": { "type": "object", "required": ["user"], "properties": { "user": { "$ref": "#/components/schemas/User" } } } } }
+      }
     },
     "schemas": {
       "Error": {
@@ -401,7 +457,19 @@
         "type": "object", "required": ["id", "name", "email", "role", "roleLabel"],
         "properties": {
           "id": { "type": "string" }, "createdAt": { "type": "string" }, "name": { "type": "string" }, "email": { "type": "string" },
-          "role": { "type": "string", "enum": ["CITIZEN", "OFFICIAL"] }, "roleLabel": { "type": "string" }
+          "role": { "type": "string", "enum": ["CITIZEN", "OFFICIAL"] }, "roleLabel": { "type": "string" },
+          "phone": { "type": ["string", "null"] },
+          "avatarUrl": { "type": ["string", "null"], "description": "Ruta de la foto de perfil (/uploads/...) o null" },
+          "agency": { "type": "string", "description": "Solo funcionarios: dependencia de la alcaldía" }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object", "minProperties": 1, "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+          "email": { "type": "string", "minLength": 3, "maxLength": 200 },
+          "phone": { "type": ["string", "null"], "maxLength": 20, "description": "Vacío o null para quitarlo" },
+          "agency": { "type": "string", "minLength": 2, "maxLength": 100, "description": "Solo funcionarios" }
         }
       },
       "AuthResponse": {

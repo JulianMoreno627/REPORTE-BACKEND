@@ -6,6 +6,7 @@ import { IncidentController } from './controllers/IncidentController.js';
 import { NotificationController } from './controllers/NotificationController.js';
 import { AdminController } from './controllers/AdminController.js';
 import { MetricsController } from './controllers/MetricsController.js';
+import { ProfileController } from './controllers/ProfileController.js';
 import { contract, contractDocsPage, validateBody } from './contract.js';
 import { DamageCategory } from '../domain/DamageCategory.js';
 import { RoadType } from '../domain/RoadType.js';
@@ -19,6 +20,7 @@ export function createApiRouter(container) {
   const notifications = new NotificationController(container);
   const admin = new AdminController(container);
   const metrics = new MetricsController(container);
+  const profile = new ProfileController(container);
 
   const signedIn = authenticate(authService);
   const router = Router();
@@ -48,6 +50,16 @@ export function createApiRouter(container) {
   router.post('/auth/register', validateBody('register'), auth.register);
   router.post('/auth/login', validateBody('login'), auth.login);
   router.get('/auth/me', signedIn, auth.me);
+
+  router.patch('/profile', signedIn, validateBody('updateProfile'), profile.update);
+  router.put('/profile/password', signedIn, validateBody('changePassword'), profile.changePassword);
+  router.put(
+    '/profile/avatar',
+    signedIn,
+    express.raw({ type: ['image/*', 'application/octet-stream'], limit: config.maxPhotoBytes + 1024 }),
+    profile.uploadAvatar,
+  );
+  router.delete('/profile/avatar', signedIn, profile.removeAvatar);
 
   router.post('/reports', rateLimitByIp(ipLimiter), signedIn, validateBody('createReport'), reports.create);
   router.post('/reports/batch', rateLimitByIp(ipLimiter), signedIn, validateBody('createReportBatch'), reports.createBatch);
