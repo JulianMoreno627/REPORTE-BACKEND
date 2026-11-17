@@ -55,7 +55,7 @@ npm run db:import   # opcional: copia a PostgreSQL los datos de data/db.json y l
 npm run db:copy     # opcional: copia una base a otra (SOURCE_DATABASE_URL → DATABASE_URL), p. ej. Render → Neon
 npm start           # genera la página SSG y levanta la API en http://localhost:3000
 npm run dev         # modo desarrollo (reinicia al guardar)
-npm test            # 35 pruebas
+npm test            # 38 pruebas
 ```
 
 `GET http://localhost:3000/api/health` responde `"storage": "postgresql+postgis"` cuando está conectado a la base.
@@ -132,6 +132,15 @@ El frontend usa además un **Web Worker** (compresión de fotos) y un **Service 
 - Los filtros por zona del mapa (`bbox`) usan `ST_MakeEnvelope` con el operador `&&`.
 - Sin base de datos, `IncidentRepository` hace lo mismo en memoria con la fórmula de haversine. Es el mismo contrato, así que los servicios no cambian (patrón **Repository** + polimorfismo).
 
+### Contract-first development
+
+El contrato de la API es [`contracts/openapi.json`](contracts/openapi.json) (OpenAPI 3.1). Se escribe **antes** que el código y es la fuente de verdad:
+
+1. **Diseño:** cada endpoint se define primero en el contrato, con su `operationId`, sus parámetros y los esquemas de la petición y de cada respuesta (incluidos los errores).
+2. **Validación en ejecución:** `src/http/contract.js` compila los esquemas con Ajv (JSON Schema 2020-12). El middleware `validateBody('<operationId>')` rechaza con `400 VALIDATION_ERROR` cualquier cuerpo que no cumpla el contrato, antes de llegar al controlador, con un mensaje en español («falta el campo «name»», «category» debe ser uno de…).
+3. **Pruebas de contrato** (`test/contract.test.js`): fallan si una ruta de Express no está en el contrato o si una operación del contrato no está implementada, y validan contra el contrato las respuestas reales de todo el flujo (registro → reporte → foto → cambio de estado → panel).
+4. **Documentación viva:** `GET /api/openapi.json` publica el contrato y `GET /api/docs` lo muestra con Swagger UI. El frontend se programa contra ese contrato (`src/api/endpoints.js`).
+
 ## Arquitectura
 
 ```
@@ -146,11 +155,12 @@ src/
 ├── infrastructure/  Clock, EventBus (Observer), RateLimiter, ImageStorage (disco / PostgreSQL)
 ├── services/        Casos de uso: Auth, Report, Incident, Heatmap, Consolidation, Notification, Metrics
 ├── render/          Plantillas SSR/SSG, IsrCache, rutas de páginas
-├── http/            Controladores, middlewares, Server-Timing, rutas
+├── http/            Controladores, middlewares, Server-Timing, rutas, contract.js (validación con el contrato)
 ├── container.js     Raíz de composición (inyección de dependencias)
 ├── app.js           Aplicación Express
 └── server.js        Arranque y apagado ordenado
 scripts/             build-ssg.js (SSG) · import-json.js (data/db.json → PostgreSQL) · copy-db.js (base → base, p. ej. Render → Neon)
+contracts/           openapi.json: contrato de la API (fuente de verdad, contract-first)
 db/schema.sql        Esquema PostgreSQL + PostGIS (idempotente, lo ejecuta la app al arrancar)
 render.yaml          Blueprint de Render: servicio web (la base está en Neon)
 test/                Pruebas con node:test (postgis.test.js usa TEST_DATABASE_URL)
@@ -158,9 +168,14 @@ test/                Pruebas con node:test (postgis.test.js usa TEST_DATABASE_UR
 
 ## Endpoints
 
+El detalle completo (esquemas de petición y respuesta) está en el contrato: `/api/openapi.json` · `/api/docs`.
+
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/api/health` | Estado y tipo de almacenamiento |
+| GET | `/api/health` | Estado, tipo de almacenamiento y modelos de IA activos |
+| GET | `/api/openapi.json` · `/api/docs` | Contrato OpenAPI y su documentación interactiva |
+| POST | `/api/reports/photo-analysis` | Análisis IA de la foto antes de enviar el reporte |
+| POST | `/api/incidents/:id/history/:entry/photo` | Foto opcional del avance de una etapa (funcionario) |
 | GET | `/api/catalog` | Categorías de daño, tipos de vía, estados, radio de agrupación, centro del mapa |
 | POST | `/api/auth/register` | `{ name, email, password }` (ciudadano). Funcionario: `role: 'OFFICIAL', inviteCode` |
 | POST | `/api/auth/login` | `{ email, password, role? }` → `{ token, user }` |

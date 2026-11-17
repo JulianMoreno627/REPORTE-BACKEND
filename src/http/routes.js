@@ -6,6 +6,7 @@ import { IncidentController } from './controllers/IncidentController.js';
 import { NotificationController } from './controllers/NotificationController.js';
 import { AdminController } from './controllers/AdminController.js';
 import { MetricsController } from './controllers/MetricsController.js';
+import { contract, contractDocsPage, validateBody } from './contract.js';
 import { DamageCategory } from '../domain/DamageCategory.js';
 import { RoadType } from '../domain/RoadType.js';
 import { IncidentStatus } from '../domain/IncidentStatus.js';
@@ -41,12 +42,15 @@ export function createApiRouter(container) {
     });
   });
 
-  router.post('/auth/register', auth.register);
-  router.post('/auth/login', auth.login);
+  router.get('/openapi.json', (_req, res) => res.json(contract));
+  router.get('/docs', (_req, res) => res.type('html').send(contractDocsPage('/api/openapi.json')));
+
+  router.post('/auth/register', validateBody('register'), auth.register);
+  router.post('/auth/login', validateBody('login'), auth.login);
   router.get('/auth/me', signedIn, auth.me);
 
-  router.post('/reports', rateLimitByIp(ipLimiter), signedIn, reports.create);
-  router.post('/reports/batch', rateLimitByIp(ipLimiter), signedIn, reports.createBatch);
+  router.post('/reports', rateLimitByIp(ipLimiter), signedIn, validateBody('createReport'), reports.create);
+  router.post('/reports/batch', rateLimitByIp(ipLimiter), signedIn, validateBody('createReportBatch'), reports.createBatch);
   router.get('/reports/mine', signedIn, reports.listMine);
   router.post(
     '/reports/photo-analysis',
@@ -64,7 +68,7 @@ export function createApiRouter(container) {
   router.get('/incidents', incidents.list);
   router.get('/incidents/priority-queue', incidents.priorityQueue);
   router.get('/incidents/:id', incidents.detail);
-  router.patch('/incidents/:id/status', signedIn, requireOfficial, incidents.changeStatus);
+  router.patch('/incidents/:id/status', signedIn, requireOfficial, validateBody('changeIncidentStatus'), incidents.changeStatus);
   router.post(
     '/incidents/:id/history/:entry/photo',
     signedIn,

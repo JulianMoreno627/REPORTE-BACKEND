@@ -1,0 +1,533 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Vías Seguras API",
+    "version": "1.0.0",
+    "description": "Contrato de la API de reporte y seguimiento ciudadano de baches y daños viales. Este archivo se escribe primero (contract-first): el backend valida las peticiones con estos esquemas y las pruebas comprueban que rutas y respuestas lo cumplan."
+  },
+  "servers": [
+    { "url": "https://vias-seguras-api.onrender.com", "description": "Producción (Render)" },
+    { "url": "http://localhost:3000", "description": "Local" }
+  ],
+  "tags": [
+    { "name": "Sistema" }, { "name": "Autenticación" }, { "name": "Reportes" }, { "name": "Incidentes" },
+    { "name": "Notificaciones" }, { "name": "Panel" }, { "name": "Métricas" }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Sistema"], "operationId": "getHealth", "summary": "Estado del servicio, almacenamiento y modelos de IA",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } } }
+      }
+    },
+    "/api/catalog": {
+      "get": {
+        "tags": ["Sistema"], "operationId": "getCatalog", "summary": "Catálogos y parámetros que usa el frontend",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Catalog" } } } } }
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "tags": ["Sistema"], "operationId": "getContract", "summary": "Este contrato",
+        "responses": { "200": { "description": "Documento OpenAPI", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/api/docs": {
+      "get": {
+        "tags": ["Sistema"], "operationId": "getContractDocs", "summary": "Documentación interactiva (Swagger UI) del contrato",
+        "responses": { "200": { "description": "Página HTML", "content": { "text/html": { "schema": { "type": "string" } } } } }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Autenticación"], "operationId": "register", "summary": "Crear cuenta de ciudadano o funcionario",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegisterRequest" } } } },
+        "responses": {
+          "201": { "description": "Cuenta creada", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Autenticación"], "operationId": "login", "summary": "Iniciar sesión",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } } },
+        "responses": {
+          "200": { "description": "Sesión iniciada", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Autenticación"], "operationId": "me", "summary": "Usuario de la sesión", "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "required": ["user"], "properties": { "user": { "$ref": "#/components/schemas/User" } } } } } },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/reports": {
+      "post": {
+        "tags": ["Reportes"], "operationId": "createReport", "summary": "Reportar un daño: se une a un incidente abierto a ≤ 30 m o abre uno nuevo",
+        "security": [{ "bearerAuth": [] }], "x-role": "CITIZEN",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReportRequest" } } } },
+        "responses": {
+          "201": { "description": "Reporte creado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReportResponse" } } } },
+          "200": { "description": "Reintento de un reporte ya recibido (mismo clientRequestId)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReportResponse" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Error" },
+          "429": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/reports/batch": {
+      "post": {
+        "tags": ["Reportes"], "operationId": "createReportBatch", "summary": "Sincronizar reportes hechos sin conexión (idempotente)",
+        "security": [{ "bearerAuth": [] }], "x-role": "CITIZEN",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object", "required": ["reports"],
+            "properties": { "reports": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/CreateReportRequest" } } }
+          } } }
+        },
+        "responses": {
+          "207": { "description": "Resultado por reporte", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["results"],
+            "properties": { "results": { "type": "array", "items": { "$ref": "#/components/schemas/BatchResult" } } }
+          } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/reports/mine": {
+      "get": {
+        "tags": ["Reportes"], "operationId": "listMyReports", "summary": "Mis reportes con el estado de su incidente", "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["count", "items"],
+            "properties": { "count": { "type": "integer" }, "items": { "type": "array", "items": { "$ref": "#/components/schemas/Report" } } }
+          } } } },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/reports/photo-analysis": {
+      "post": {
+        "tags": ["Reportes"], "operationId": "analyzePhoto", "summary": "Analizar una foto con IA antes de enviar el reporte (Groq, respaldo Gemini)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "$ref": "#/components/requestBodies/Photo" },
+        "responses": {
+          "200": { "description": "Análisis (ai es null si la IA no respondió)", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["enabled", "ai"],
+            "properties": { "enabled": { "type": "boolean" }, "ai": { "oneOf": [{ "$ref": "#/components/schemas/AiAnalysis" }, { "type": "null" }] } }
+          } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "413": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/reports/{id}/photo": {
+      "post": {
+        "tags": ["Reportes"], "operationId": "attachReportPhoto", "summary": "Adjuntar la foto del reporte: verificación GPS del EXIF (Worker) y análisis IA",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "requestBody": { "$ref": "#/components/requestBodies/Photo" },
+        "responses": {
+          "200": { "description": "Foto guardada", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["report", "analysis"],
+            "properties": { "report": { "$ref": "#/components/schemas/Report" }, "analysis": { "$ref": "#/components/schemas/PhotoAnalysis" } }
+          } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "413": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/incidents": {
+      "get": {
+        "tags": ["Incidentes"], "operationId": "listIncidents", "summary": "Incidentes filtrados por zona del mapa (bbox), estado, tipo y prioridad",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["OPEN", "REPORTED", "IN_REVIEW", "IN_REPAIR", "RESOLVED", "REJECTED"] } },
+          { "name": "category", "in": "query", "schema": { "$ref": "#/components/schemas/DamageCategory" } },
+          { "name": "roadType", "in": "query", "schema": { "$ref": "#/components/schemas/RoadType" } },
+          { "name": "priority", "in": "query", "schema": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"] } },
+          { "$ref": "#/components/parameters/Bbox" },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["priority", "recent", "reports", "oldest"] } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 500 } }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["count", "items"],
+            "properties": { "count": { "type": "integer" }, "items": { "type": "array", "items": { "$ref": "#/components/schemas/Incident" } } }
+          } } } }
+        }
+      }
+    },
+    "/api/incidents/priority-queue": {
+      "get": {
+        "tags": ["Incidentes"], "operationId": "priorityQueue", "summary": "Orden de atención sugerido",
+        "parameters": [{ "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["strategy", "items"],
+            "properties": { "strategy": { "type": "string" }, "items": { "type": "array", "items": { "$ref": "#/components/schemas/Incident" } } }
+          } } } }
+        }
+      }
+    },
+    "/api/incidents/{id}": {
+      "get": {
+        "tags": ["Incidentes"], "operationId": "getIncident", "summary": "Detalle del incidente con sus reportes e historial",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IncidentDetail" } } } },
+          "404": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/incidents/{id}/status": {
+      "patch": {
+        "tags": ["Incidentes"], "operationId": "changeIncidentStatus", "summary": "Cambiar el estado (funcionario); notifica a quienes reportaron",
+        "security": [{ "bearerAuth": [] }], "x-role": "OFFICIAL",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["status"],
+          "properties": {
+            "status": { "type": "string", "enum": ["IN_REVIEW", "IN_REPAIR", "RESOLVED", "REJECTED"] },
+            "note": { "type": "string", "maxLength": 500 }
+          }
+        } } } },
+        "responses": {
+          "200": { "description": "Incidente actualizado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Incident" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/incidents/{id}/history/{entry}/photo": {
+      "post": {
+        "tags": ["Incidentes"], "operationId": "attachHistoryPhoto", "summary": "Foto opcional del avance de una etapa (funcionario)",
+        "security": [{ "bearerAuth": [] }], "x-role": "OFFICIAL",
+        "parameters": [
+          { "$ref": "#/components/parameters/Id" },
+          { "name": "entry", "in": "path", "required": true, "description": "Posición de la etapa en el historial (0 = primera)", "schema": { "type": "integer", "minimum": 0 } }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/Photo" },
+        "responses": {
+          "200": { "description": "Incidente con la foto en la etapa", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Incident" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/heatmap": {
+      "get": {
+        "tags": ["Incidentes"], "operationId": "getHeatmap", "summary": "Puntos [lat, lng, prioridad] para el mapa de calor",
+        "parameters": [{ "$ref": "#/components/parameters/Bbox" }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["count", "points", "gradient", "strategy"],
+            "properties": {
+              "generatedAt": { "type": "string" }, "strategy": { "type": "string" }, "count": { "type": "integer" },
+              "gradient": { "type": "object", "additionalProperties": { "type": "string" } },
+              "points": { "type": "array", "items": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }], "minItems": 3, "maxItems": 3 } }
+            }
+          } } } }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": ["Notificaciones"], "operationId": "listNotifications", "summary": "Notificaciones del usuario", "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["unread", "items"],
+            "properties": { "unread": { "type": "integer" }, "items": { "type": "array", "items": { "$ref": "#/components/schemas/Notification" } } }
+          } } } },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/notifications/stream": {
+      "get": {
+        "tags": ["Notificaciones"], "operationId": "streamNotifications", "summary": "Notificaciones en tiempo real (Server-Sent Events)",
+        "parameters": [{ "name": "token", "in": "query", "required": true, "description": "Token de sesión (EventSource no permite cabeceras)", "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Flujo SSE con eventos ready y notification", "content": { "text/event-stream": { "schema": { "type": "string" } } } }, "401": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "patch": {
+        "tags": ["Notificaciones"], "operationId": "markNotificationRead", "summary": "Marcar como leída", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Notification" } } } },
+          "404": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/admin/summary": {
+      "get": {
+        "tags": ["Panel"], "operationId": "adminSummary", "summary": "Indicadores del panel", "security": [{ "bearerAuth": [] }], "x-role": "OFFICIAL",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": {
+            "type": "object", "required": ["totals", "byStatus", "byCategory", "byPriority"],
+            "properties": {
+              "totals": { "type": "object", "required": ["incidents", "open", "reports"] },
+              "byStatus": { "type": "array" }, "byCategory": { "type": "array" }, "byPriority": { "type": "object" },
+              "consolidation": { "$ref": "#/components/schemas/ConsolidationStatus" }, "isrCache": { "type": "object" }
+            }
+          } } } },
+          "403": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/admin/consolidation": {
+      "get": {
+        "tags": ["Panel"], "operationId": "consolidationStatus", "summary": "Estado de la consolidación DBSCAN", "security": [{ "bearerAuth": [] }], "x-role": "OFFICIAL",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConsolidationStatus" } } } }, "403": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/api/admin/consolidate": {
+      "post": {
+        "tags": ["Panel"], "operationId": "consolidate", "summary": "Ejecutar DBSCAN en un Worker Thread y unir incidentes duplicados", "security": [{ "bearerAuth": [] }], "x-role": "OFFICIAL",
+        "responses": { "200": { "description": "Resultado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConsolidationRun" } } } }, "403": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/api/metrics/web-vitals": {
+      "post": {
+        "tags": ["Métricas"], "operationId": "recordWebVitals", "summary": "Core Web Vitals enviados por el navegador con sendBeacon",
+        "requestBody": { "required": true, "content": { "text/plain": { "schema": { "type": "string", "description": "JSON { page, metrics: [{ name, value }] }" } } } },
+        "responses": { "202": { "description": "Aceptado", "content": { "application/json": { "schema": { "type": "object", "required": ["accepted"], "properties": { "accepted": { "type": "integer" } } } } } } }
+      }
+    },
+    "/api/metrics/summary": {
+      "get": {
+        "tags": ["Métricas"], "operationId": "metricsSummary", "summary": "Latencias p50–p99, consultas PostGIS, workers, event loop y Web Vitals",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "required": ["http", "workers", "webVitals"] } } } } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "description": "Token devuelto por /api/auth/login o /api/auth/register" }
+    },
+    "parameters": {
+      "Id": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+      "Bbox": { "name": "bbox", "in": "query", "description": "minLat,minLng,maxLat,maxLng", "schema": { "type": "string", "pattern": "^-?\\d+(\\.\\d+)?(,-?\\d+(\\.\\d+)?){3}$" } }
+    },
+    "requestBodies": {
+      "Photo": {
+        "required": true,
+        "content": {
+          "image/jpeg": { "schema": { "type": "string", "contentMediaType": "image/jpeg" } },
+          "image/png": { "schema": { "type": "string", "contentMediaType": "image/png" } },
+          "image/webp": { "schema": { "type": "string", "contentMediaType": "image/webp" } }
+        }
+      }
+    },
+    "responses": {
+      "Error": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object", "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object", "required": ["code", "message"],
+            "properties": { "code": { "type": "string" }, "message": { "type": "string" }, "details": {} }
+          }
+        }
+      },
+      "DamageCategory": { "type": "string", "enum": ["POTHOLE", "SINKHOLE", "MANHOLE", "SIGNAGE", "CRACK", "OTHER"] },
+      "RoadType": { "type": "string", "enum": ["PRIMARY", "SECONDARY", "RESIDENTIAL"] },
+      "IncidentStatus": { "type": "string", "enum": ["REPORTED", "IN_REVIEW", "IN_REPAIR", "RESOLVED", "REJECTED"] },
+      "Location": {
+        "type": "object", "required": ["lat", "lng"],
+        "properties": { "lat": { "type": "number", "minimum": -90, "maximum": 90 }, "lng": { "type": "number", "minimum": -180, "maximum": 180 } }
+      },
+      "Health": {
+        "type": "object", "required": ["status", "storage", "ai", "time"],
+        "properties": {
+          "status": { "const": "ok" },
+          "storage": { "type": "string", "enum": ["postgresql+postgis", "json", "memory"] },
+          "ai": { "type": "string", "description": "Modelos activos en orden de uso, o disabled" },
+          "time": { "type": "string" }
+        }
+      },
+      "Catalog": {
+        "type": "object", "required": ["categories", "roadTypes", "statuses", "clusterRadiusMeters", "maxPhotoBytes", "cityCenter"],
+        "properties": {
+          "categories": { "type": "array", "items": { "type": "object", "required": ["code", "label"] } },
+          "roadTypes": { "type": "array", "items": { "type": "object", "required": ["code", "label"] } },
+          "statuses": { "type": "array", "items": { "type": "object", "required": ["code", "label"] } },
+          "clusterRadiusMeters": { "type": "number" },
+          "maxPhotoBytes": { "type": "integer" },
+          "cityCenter": { "$ref": "#/components/schemas/Location" }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object", "required": ["name", "email", "password"],
+        "properties": {
+          "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+          "email": { "type": "string", "minLength": 3, "maxLength": 200 },
+          "password": { "type": "string", "minLength": 6, "maxLength": 200 },
+          "role": { "type": "string", "enum": ["CITIZEN", "OFFICIAL"] },
+          "inviteCode": { "type": "string", "maxLength": 200 },
+          "agency": { "type": "string", "maxLength": 200 }
+        }
+      },
+      "LoginRequest": {
+        "type": "object", "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "maxLength": 200 },
+          "password": { "type": "string", "maxLength": 200 },
+          "role": { "type": "string", "enum": ["CITIZEN", "OFFICIAL"] }
+        }
+      },
+      "User": {
+        "type": "object", "required": ["id", "name", "email", "role", "roleLabel"],
+        "properties": {
+          "id": { "type": "string" }, "createdAt": { "type": "string" }, "name": { "type": "string" }, "email": { "type": "string" },
+          "role": { "type": "string", "enum": ["CITIZEN", "OFFICIAL"] }, "roleLabel": { "type": "string" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object", "required": ["token", "user"],
+        "properties": { "token": { "type": "string" }, "user": { "$ref": "#/components/schemas/User" } }
+      },
+      "CreateReportRequest": {
+        "type": "object", "required": ["lat", "lng", "category"],
+        "properties": {
+          "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+          "lng": { "type": "number", "minimum": -180, "maximum": 180 },
+          "category": { "$ref": "#/components/schemas/DamageCategory" },
+          "roadType": { "$ref": "#/components/schemas/RoadType" },
+          "description": { "type": "string", "maxLength": 500 },
+          "clientRequestId": { "type": "string", "maxLength": 100 }
+        }
+      },
+      "AiAnalysis": {
+        "type": "object", "required": ["isRoad", "category", "risk", "confidence", "reason", "model"],
+        "properties": {
+          "isRoad": { "type": "boolean" },
+          "category": { "oneOf": [{ "$ref": "#/components/schemas/DamageCategory" }, { "type": "null" }], "description": "null = sin daño visible" },
+          "risk": { "enum": ["LOW", "MEDIUM", "HIGH", null] },
+          "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "reason": { "type": "string", "maxLength": 160 },
+          "provider": { "enum": ["groq", "gemini", null] },
+          "model": { "type": "string" },
+          "analyzedAt": { "type": "string" }
+        }
+      },
+      "Report": {
+        "type": "object", "required": ["id", "createdAt", "location", "category", "categoryLabel", "roadType", "photoCheck"],
+        "properties": {
+          "id": { "type": "string" }, "createdAt": { "type": "string" },
+          "location": { "$ref": "#/components/schemas/Location" },
+          "category": { "$ref": "#/components/schemas/DamageCategory" }, "categoryLabel": { "type": "string" },
+          "roadType": { "$ref": "#/components/schemas/RoadType" },
+          "description": { "type": "string" },
+          "incidentId": { "type": ["string", "null"] },
+          "photoUrl": { "type": ["string", "null"] },
+          "photoCheck": { "type": "string", "enum": ["NONE", "VERIFIED", "MISMATCH", "NO_GPS"] },
+          "photoDistanceMeters": { "type": ["integer", "null"] },
+          "aiAnalysis": { "oneOf": [{ "$ref": "#/components/schemas/AiAnalysis" }, { "type": "null" }] }
+        }
+      },
+      "PhotoAnalysis": {
+        "type": "object", "required": ["mimeType", "photoCheck", "ai"],
+        "properties": {
+          "mimeType": { "type": "string" },
+          "gps": { "oneOf": [{ "$ref": "#/components/schemas/Location" }, { "type": "null" }] },
+          "photoCheck": { "type": "string", "enum": ["VERIFIED", "MISMATCH", "NO_GPS"] },
+          "distanceMeters": { "type": ["integer", "null"] },
+          "ai": { "oneOf": [{ "$ref": "#/components/schemas/AiAnalysis" }, { "type": "null" }] }
+        }
+      },
+      "Priority": {
+        "type": "object", "required": ["score", "level"],
+        "properties": { "score": { "type": "number", "minimum": 0, "maximum": 1 }, "level": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW", "NONE"] }, "factors": { "type": "object" } }
+      },
+      "HistoryEntry": {
+        "type": "object", "required": ["status", "statusLabel", "at"],
+        "properties": {
+          "status": { "$ref": "#/components/schemas/IncidentStatus" }, "statusLabel": { "type": "string" }, "at": { "type": "string" },
+          "note": { "type": "string" }, "photoUrl": { "type": ["string", "null"] }
+        }
+      },
+      "Incident": {
+        "type": "object",
+        "required": ["id", "createdAt", "updatedAt", "location", "status", "statusLabel", "nextStatuses", "category", "roadType", "reportCount", "history", "priority"],
+        "properties": {
+          "id": { "type": "string" }, "createdAt": { "type": "string" }, "updatedAt": { "type": "string" },
+          "location": { "$ref": "#/components/schemas/Location" },
+          "status": { "$ref": "#/components/schemas/IncidentStatus" }, "statusLabel": { "type": "string" },
+          "nextStatuses": { "type": "array", "items": { "type": "object", "required": ["code", "label"] } },
+          "category": { "$ref": "#/components/schemas/DamageCategory" }, "categoryLabel": { "type": "string" },
+          "roadType": { "$ref": "#/components/schemas/RoadType" }, "roadTypeLabel": { "type": "string" },
+          "reportCount": { "type": "integer", "minimum": 1 }, "reporterCount": { "type": "integer" },
+          "history": { "type": "array", "items": { "$ref": "#/components/schemas/HistoryEntry" } },
+          "priority": { "$ref": "#/components/schemas/Priority" }
+        }
+      },
+      "IncidentDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Incident" },
+          { "type": "object", "required": ["reports"], "properties": { "reports": { "type": "array", "items": { "$ref": "#/components/schemas/Report" } } } }
+        ]
+      },
+      "CreateReportResponse": {
+        "type": "object", "required": ["message", "grouped", "replayed", "report", "incident"],
+        "properties": {
+          "message": { "type": "string" }, "grouped": { "type": "boolean" }, "replayed": { "type": "boolean" },
+          "report": { "$ref": "#/components/schemas/Report" },
+          "incident": { "type": ["object", "null"] }
+        }
+      },
+      "BatchResult": {
+        "type": "object", "required": ["clientRequestId", "ok"],
+        "properties": {
+          "clientRequestId": { "type": ["string", "null"] }, "ok": { "type": "boolean" },
+          "replayed": { "type": "boolean" }, "grouped": { "type": "boolean" },
+          "report": { "$ref": "#/components/schemas/Report" }, "incidentId": { "type": "string" },
+          "status": { "type": "integer" }, "error": { "type": "string" }
+        }
+      },
+      "Notification": {
+        "type": "object", "required": ["id", "userId", "title", "message", "read"],
+        "properties": {
+          "id": { "type": "string" }, "createdAt": { "type": "string" }, "userId": { "type": "string" },
+          "incidentId": { "type": ["string", "null"] }, "title": { "type": "string" }, "message": { "type": "string" }, "read": { "type": "boolean" }
+        }
+      },
+      "ConsolidationRun": {
+        "type": "object", "required": ["at", "durationMs", "reportsAnalyzed", "clustersFound", "incidentsMerged", "merges"],
+        "properties": {
+          "at": { "type": "string" }, "durationMs": { "type": "integer" }, "clusteringMs": { "type": "integer" },
+          "reportsAnalyzed": { "type": "integer" }, "clustersFound": { "type": "integer" }, "incidentsMerged": { "type": "integer" },
+          "merges": { "type": "array", "items": { "type": "object", "required": ["targetId", "absorbedIds"] } }
+        }
+      },
+      "ConsolidationStatus": {
+        "type": "object", "required": ["running", "intervalMs", "lastRun"],
+        "properties": {
+          "running": { "type": "boolean" }, "intervalMs": { "type": ["integer", "null"] },
+          "lastRun": { "oneOf": [{ "$ref": "#/components/schemas/ConsolidationRun" }, { "type": "null" }] }
+        }
+      }
+    }
+  }
+}
